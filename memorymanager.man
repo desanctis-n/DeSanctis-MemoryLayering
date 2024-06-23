@@ -1,0 +1,146 @@
+.TH MEMORY MANAGER
+.SH NAME
+Project - Memory Management and Layering
+
+.SH SYNOPSIS
+May this report please Lord Reptar. I am honored to serve
+the great Lizard Legion in creating Project Repto: a program
+offering robust memory allocation functionality.
+
+.SH DESCRIPTION
+.I FILES CREATED:
+.RS
+.I MemoryManager/MemoryManager.h
+.P
+.I MemoryManager/MemoryManager.cpp
+.RE
+.I SUMMARY OF IMPLEMENTATION:
+.RS
+.P
+class MemoryManager: Stores heap array of uint8_t and
+basic information. Modifies these using public member functions.
+.P
+.RS
+struct block: 
+.RS 
+Contains a uint16_t and a bool to represent the block size and if it is a hole.
+.P
+.RS
+std::map<uint_16t, block> blocks:
+.RS
+Used to keep track of 
+allocated and free blocks using a bool to distinguish.
+.P
+MemoryManager::MemoryManager(unsigned wordSize, std::function<int(int, void *)> allocator):
+.RS
+Constructor. Assigns members wordSize and allocator using parameters.
+.P
+MemoryManager::~MemoryManager():
+.RS
+Destructor. Calls shutdown().
+.P
+.RS
+.P
+void MemoryManager::initialize(size_t sizeInWords):
+.RS
+Initializes member variables and gets array of memory on heap 
+using "new" if not initialized. Caps number of words to size of
+uint16_t.
+.P
+void MemoryManager::shutdown():
+.RS
+If initialized, takes array off heap using delete[], resets 
+member variables, clears block map.
+.P
+void *MemoryManager::allocate(size_t sizeInBytes):
+.RS
+Gets array of holes using getlist(), generates offset using an allocator
+function, calls delete[] on the array, then either updates block[offset]'s bool to
+represent being filled, or modifies block[offset]'s size and bool and adds a new
+block dependent on if the allocation size == the block size at the offset.
+.P
+void MemoryManager::free(void *address):
+.RS
+Interprets address as offset in block map, sets bool for block[offset], combines
+new holes together using combineHole().
+.P
+void MemoryManager::combineHole(std::map<uint16_t, block>::iterator iter):
+.RS
+From position of current block, finds previous and next block. If next block
+is hole, combines sizes and erases next block from map. If previous
+block is also hole, combines sizes and erases current block.
+.P
+void *MemoryManager::getList():
+.RS
+Iterates blocks and places holes into a queue. Generates array on heap,
+places number of holes into array[0]. While queue isn't empty, places offset
+and size of the current hole into array, and pops from queue. Returns array.
+.P
+int bestFit/worstfit(int sizeInWords, void *list):
+.RS
+Two allocator functions with reversed logic. Gets array of holes from getlist(),
+initializes best/worst to UINT16_MAX or 0; iterates through array of holes, 
+updates best/worst fit if hole can accomodate allocation.
+If no suitable hole is found, returns -1.
+.P
+int dumpMemoryMap(char *filename):
+.RS
+Opens file using POSIX syscall open(filename, O_RDWR | O_CREAT | O_TRUNC, 0777).
+O_RDWR gives file read/write permissions, O_CREAT creates file if it
+doesn't exist, O_TRUNC clears file to be empty upon
+opening, and 0777 specifies access permissions read, write, and execute.
+Iterates holes, adds to file, closes using close().
+.P
+void *MemoryManager::getBitmap():
+.RS
+Generates 1 byte array of the number of words on heap. 
+Sets each element to 0 using memset, iterates blocks and adds allocated blocks
+to array using bit shifting. Returns bitmap array where the first two bytes represent the
+size.
+.P
+unsigned getWordSize(), void *getMemoryStart(), unsigned getMemoryLimit():
+.RS
+Returns respective member variable.
+.P
+void setAllocator(std::function<int(int, void *)>):
+.RS
+sets std::function member variable to bestfit/worstfit.
+
+
+.SH TESTING
+Used CommandLineTest.cpp and valgrind. built .sh file to execute
+commands and check for errors and memory leaks. Avoided leaks by
+ensuring that caller of function returning dynamically allocated array
+deletes array. Avoided double deletion by calling shutdown() in
+the destructor. Avoided deletions of nullptr by checking before deletion.
+
+
+.SH BUGS
+Several memory leaks occurred during the development of this program. This was
+because objects allocated on the heap, particularly from getlist, were not deleted
+properly. The output from getlist fell into ownership of allocate(), and therefore
+allocate was responsible for deleting it. Besides just memory leaks, there were
+many cases of misguided pointer arithmetic and off by one errors. There was even
+a problem with a data type I used frequently, size_t. Initially, I made getlist()
+return a size_t*, which caused issues when implemented in CommandLineTest and needed
+to be switched to uint16_t*. Besides this, I do suspect there might be undefined
+behavior somewhere since there are many casts to different sizes of integers
+throughout the program.
+
+
+.SH LINK
+.B https://youtu.be/DXQjWTwe9j8
+
+
+.SH REFERENCES/CITATIONS
+.B https://www.classes.cs.uchicago.edu/archive/2017/winter/51081-1/LabFAQ/lab2/fileio.html
+.PP
+.B https://devdocs.io/cpp/
+.PP
+.B https://www.idc-online.com/technical_references/pdfs/information_technology/Memory_Management_with_Bitmaps_and_Linked_List.pdf
+.PP
+.B https://valgrind.org/
+.PP
+.B https://en.cppreference.com/w/cpp/utility/functional/function
+.SH AUTHOR
+Nicholas DeSanctis
